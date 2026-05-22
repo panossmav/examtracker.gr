@@ -1,6 +1,6 @@
 CREATE TABLE classes (
-    class_id SERIAL PRIMARY KEY,
-    class_name VARCHAR(50) NOT NULL UNIQUE
+    class_id SERIAL,
+    class_name VARCHAR(50) NOT NULL PRIMARY KEY -- Το όνομα γίνεται το Κύριο Κλειδί
 );
 
 CREATE TABLE subjects (
@@ -13,10 +13,10 @@ CREATE TABLE students (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     age INT,
-    class_id INT,
+    class_name VARCHAR(50), 
     registration_date DATE DEFAULT CURRENT_DATE,
-    CONSTRAINT fk_student_class FOREIGN KEY (class_id) 
-        REFERENCES classes(class_id) ON DELETE SET NULL
+    CONSTRAINT fk_student_class FOREIGN KEY (class_name) 
+        REFERENCES classes(class_name) ON DELETE SET NULL
 );
 
 CREATE TABLE exams (
@@ -24,11 +24,11 @@ CREATE TABLE exams (
     exam_title VARCHAR(150) NOT NULL,
     exam_date DATE DEFAULT CURRENT_DATE,
     subject_id INT NOT NULL,
-    class_id INT NOT NULL,
+    class_name VARCHAR(50) NOT NULL, -- Και εδώ κείμενο αντί για ID
     CONSTRAINT fk_exam_subject FOREIGN KEY (subject_id) 
         REFERENCES subjects(subject_id) ON DELETE CASCADE,
-    CONSTRAINT fk_exam_class FOREIGN KEY (class_id) 
-        REFERENCES classes(class_id) ON DELETE CASCADE
+    CONSTRAINT fk_exam_class FOREIGN KEY (class_name) 
+        REFERENCES classes(class_name) ON DELETE CASCADE
 );
 
 CREATE TABLE grades (
