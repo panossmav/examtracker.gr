@@ -1,3 +1,5 @@
+-- WIP
+
 CREATE TABLE classes (
     class_id SERIAL,
     class_name VARCHAR(50) NOT NULL PRIMARY KEY -- Το όνομα γίνεται το Κύριο Κλειδί

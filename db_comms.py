@@ -4,6 +4,8 @@ import os
 
 load_dotenv()
 
+global cur,conn
+
 conn = pgsql.connect(
     dbname = os.getenv("BASE_NAME"),
     dbuser = os.getenv("BASE_USER"),
@@ -14,38 +16,64 @@ conn = pgsql.connect(
 
 cur = conn.cursor()
 
-def add_student(f_n,l_n,age,cl):
-    try:
-        cur.execute("""
-            INSERT INTO students (first_name,last_name,age,class_name)        
-            VALUES (%s , %s , %s , %s)
-                    """,(f_n,l_n,age,cl))
-        conn.commit()
-        return True
-    except Exception:
-        conn.rollback()
-        return False
+
+
+class Student:
+    def __init__(self,name,age,grade):
+        self.name = name
+        self.age = age
+        self.grade = grade
+
+    def get_avg_subj(self,subject):
+        try:
+            cur.execute("""
+                SELECT AVG(mark) FROM exams WHERE name = %s AND subject = %s      
+                        """,(self.name,subject))
+            res = cur.fetchone()
+            if res and res[0]:
+                return round(res[0],2)
+            else:
+                raise Exception
+        except Exception:
+            return -1 
     
-def add_class(name):
-    try:
-        cur.execute("""
-            INSERT INTO classes (class_name)
-            VALUES(%s)        
-                    """,(name,))
-        conn.commit()
-        return True
-    except Exception:
-        conn.rollback()
-        return False
+    def get_avg(self):
+        try:
+            cur.execute("""
+                SELECT AVG(mark) FROM exams WHERE name = %s      
+                        """,(self.name,))
+            res = cur.fetchone()
+            if res and res[0]:
+                return round(res[0],2)
+            else:
+                raise Exception
+        except Exception:
+            return -1 
+        
+    def list_grades(self,subject):
+            cur.execute("""
+                SELECT mark FROM exams WHERE name = %s AND subject = %s        
+                        """,(self.name,subject))
+            res = cur.fetchall()
+            res_list = [res[0] for row in res]
+            return res_list
+
+class Mock_exam:
+    def __init__(self,s_name,date,subject,mark):
+        self.s_name = s_name
+        self.date = date
+        self.subject = subject
+        self.mark = mark
+
+    def log_exam(self):
+        try:
+            cur.execute("""
+                INSERT INTO exams VALUES (mark,s_name,date,subject)
+                    VALUES (%s,%s,%s,%s)        
+                        """,(self.mark,self.s_name,self.date,self.subject))
+            conn.commit()
+        except Exception:
+            conn.rollback()
     
-def add_subject(name):
-    try:
-        cur.execute("""
-            INSERT INTO subjects (subject_name)
-            VALUES (%s)        
-                    """,(name,))
-        conn.commit()
-        return True
-    except Exception:
-        conn.rollback()
-        return False
+    
+    

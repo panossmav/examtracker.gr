@@ -1,0 +1,17 @@
+TABLE EXAMS:
+    1. mark
+    2. s_name 
+    3. date
+    4. subject 
+    5. id
+
+TABLE STUDENTS:
+    1. name
+    2. age
+    3. grade
+    4. id
+
+TABLE GRADE:
+    1. name
+    2. id 
+
