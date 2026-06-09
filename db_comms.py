@@ -55,10 +55,10 @@ class Student:
                 SELECT mark FROM exams WHERE name = %s AND subject = %s        
                         """,(self.name,subject))
             res = cur.fetchall()
-            res_list = [res[0] for row in res]
+            res_list = [row[0] for row in res]
             return res_list
 
-class Mock_exam:
+class mock_exam:
     def __init__(self,s_name,date,subject,mark):
         self.s_name = s_name
         self.date = date
@@ -68,12 +68,37 @@ class Mock_exam:
     def log_exam(self):
         try:
             cur.execute("""
-                INSERT INTO exams VALUES (mark,s_name,date,subject)
+                INSERT INTO exams (mark,s_name,date,subject)
                     VALUES (%s,%s,%s,%s)        
                         """,(self.mark,self.s_name,self.date,self.subject))
             conn.commit()
         except Exception:
             conn.rollback()
     
-    
+
+class Grade:
+    def __init__(self,name):
+        self.name = name
+
+
+class Backend_user:
+    def __init__(self,username,pwd,user_type):
+        self.username = username
+        self.pwd = pwd
+        self.user_type = user_type
+
+    def log_in(self):
+        try:
+            cur.execute("""
+                SELECT user_type FROM users WHERE username = %s AND pwd = %s        
+                        """,(self.username,self.pwd))
+            res = cur.fetchone()
+            if res and res[0]:
+                return res
+            else:
+                raise Exception
+        except Exception:
+            return 'Error!'
+
+
     
