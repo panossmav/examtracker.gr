@@ -1,7 +1,7 @@
 CREATE TABLE exams(
     id SERIAL PRIMARY KEY,
-    subj TEXT VARCHAR(50) NOT NULL,
-    c_date TEXT VARCHAR(11) NOT NULL,
+    subj VARCHAR(50) NOT NULL,
+    c_date VARCHAR(11) NOT NULL,
     s_name TEXT NOT NULL,
     mark FLOAT NOT NULL
 );
@@ -9,7 +9,7 @@ CREATE TABLE exams(
 CREATE TABLE students(
     id SERIAL PRIMARY KEY,
     s_name TEXT NOT NULL,
-    dob TEXT VARCHAR(11) NOT NULL
+    dob VARCHAR(11) NOT NULL
 );
 
 CREATE TABLE grade(
@@ -17,7 +17,7 @@ CREATE TABLE grade(
     c_name TEXT NOT NULL,
     is_active INTEGER NOT NULL,
     student_amount INTEGER NOT NULL
-)
+);
 
 CREATE TABLE users(
     id SERIAL PRIMARY KEY,
