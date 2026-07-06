@@ -1,14 +1,10 @@
-"""
-ExamTracker — GUI frontend (Isolated Version)
-Δεν απαιτεί βάση δεδομένων (db_comms.py). Τρέχει 100% αυτόνομα.
-"""
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date
-import random
+import hashlib as hl
+import db_comms_demo as db
 
-# ── Palette ────────────────────────────────────────────────────────────────────
+# ── Palette — ίδια με το website ───────────────────────────────────────────────
 NAVY   = "#0D2B45"   # sidebar, topbar, τίτλοι
 NAVY_L = "#152F48"   # sidebar hover
 TEAL   = "#1A7080"   # secondary accent, labels
@@ -84,7 +80,7 @@ class ExamTracker(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("ExamTracker - Mock Preview")
+        self.title("ExamTracker (Demo)")
         self.geometry("1000x620")
         self.minsize(1000, 620)
         self.configure(bg=BG)
@@ -125,11 +121,13 @@ class ExamTracker(tk.Tk):
         self._clear()
         self.configure(bg=BG)
 
+        # Λεπτή navy λωρίδα πάνω
         tk.Frame(self, bg=NAVY, height=5).pack(fill="x")
 
         outer = tk.Frame(self, bg=BG)
         outer.place(relx=0.5, rely=0.5, anchor="center")
 
+        # Two-tone logo
         logo_row = tk.Frame(outer, bg=BG)
         logo_row.pack(pady=(0, 24))
         tk.Label(logo_row, text="EXAM", font=("Segoe UI", 28, "bold"),
@@ -137,6 +135,7 @@ class ExamTracker(tk.Tk):
         tk.Label(logo_row, text="TRACKER", font=("Segoe UI", 28, "bold"),
                  bg=BG, fg=TEAL).pack(side="left")
 
+        # Λευκή κάρτα σύνδεσης
         card = _card(outer)
         card.pack()
 
@@ -145,7 +144,7 @@ class ExamTracker(tk.Tk):
 
         tk.Label(inner, text="Σύνδεση στο λογαριασμό σου",
                  font=FONT_LG, bg=WHITE, fg=NAVY).pack(anchor="w", pady=(0, 4))
-        tk.Label(inner, text="(Δοκίμασε Όνομα: admin | Κωδικός: 1234)",
+        tk.Label(inner, text="Εισάγαγε τα στοιχεία σου για να συνεχίσεις.",
                  font=FONT_SM, bg=WHITE, fg=MUTED).pack(anchor="w", pady=(0, 24))
 
         self._login_fields: dict[str, tk.Entry] = {}
@@ -163,6 +162,9 @@ class ExamTracker(tk.Tk):
                                    bg=WHITE, fg=RED)
         self._login_err.pack(pady=(0, 8))
 
+        tk.Label(inner, text="Demo στοιχεία: demo / demo123",
+                 font=FONT_SM, bg=WHITE, fg=MUTED).pack(anchor="w", pady=(0, 8))
+
         _gold_btn(inner, "Σύνδεση  →", self._do_login,
                   padx=0, pady=0).pack(fill="x", ipady=10)
 
@@ -172,17 +174,16 @@ class ExamTracker(tk.Tk):
     def _do_login(self):
         u = self._login_fields["username"].get().strip()
         p = self._login_fields["password"].get().strip()
-
         if not u or not p:
             self._login_err.config(text="Συμπλήρωσε και τα δύο πεδία.")
             return
-
-        # ISOLATED MOCK LOGIN
-        if u == "admin" and p == "1234":
-            self.current_user = {"username": u, "type": "Administrator"}
-            self._show_main()
+        hashed = hl.sha256(p.encode()).hexdigest()
+        result = db.Backend_user(u, hashed, None).log_in()
+        if not result or result == "Error!":
+            self._login_err.config(text="Λάθος στοιχεία σύνδεσης.")
         else:
-            self._login_err.config(text="Λάθος στοιχεία. Δοκίμασε admin / 1234")
+            self.current_user = {"username": u, "type": result[0]}
+            self._show_main()
 
     # ══════════════════════════════════════════════════════════════════════════
     # MAIN SHELL
@@ -192,10 +193,12 @@ class ExamTracker(tk.Tk):
         self._nav_rows = {}
         self._active_nav = None
 
+        # ── Top bar ───────────────────────────────────────────────────────────
         top = tk.Frame(self, bg=NAVY, height=56)
         top.pack(fill="x")
         top.pack_propagate(False)
 
+        # Two-tone logo
         logo_f = tk.Frame(top, bg=NAVY)
         logo_f.pack(side="left", padx=20, pady=0)
         tk.Label(logo_f, text="EXAM", font=("Segoe UI", 14, "bold"),
@@ -203,6 +206,7 @@ class ExamTracker(tk.Tk):
         tk.Label(logo_f, text="TRACKER", font=("Segoe UI", 14, "bold"),
                  bg=NAVY, fg=CYAN).pack(side="left")
 
+        # Thin vertical separator
         tk.Frame(top, bg="#1E3F5A", width=1).pack(side="left", fill="y", pady=14)
 
         tk.Label(top, text=f"  {self.current_user['username']}",
@@ -211,6 +215,7 @@ class ExamTracker(tk.Tk):
         tk.Label(top, text=f"· {self.current_user['type']}",
                  font=FONT_SM, bg=NAVY, fg="#7BA0BB").pack(side="left")
 
+        # Logout button
         tk.Button(
             top, text="Αποσύνδεση", font=("Segoe UI", 9),
             bg="#1E3F5A", fg="#B0C8DC",
@@ -219,22 +224,26 @@ class ExamTracker(tk.Tk):
             command=self._show_login,
         ).pack(side="right", padx=16, pady=14)
 
+        # Thin separator under topbar
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
 
+        # ── Body ──────────────────────────────────────────────────────────────
         body = tk.Frame(self, bg=BG)
         body.pack(fill="both", expand=True)
 
         sidebar = tk.Frame(body, bg=NAVY, width=200)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
-        tk.Frame(sidebar, bg="#1E3F5A", height=1).pack(fill="x")
+        tk.Frame(sidebar, bg="#1E3F5A", height=1).pack(fill="x")  # top separator
 
+        # Right-side separator (1px)
         tk.Frame(body, bg=BORDER, width=1).pack(side="left", fill="y")
 
         self.content = tk.Frame(body, bg=BG)
         self.content.pack(side="left", fill="both", expand=True)
 
-        tk.Frame(sidebar, bg=NAVY, height=10).pack()
+        # Nav items
+        tk.Frame(sidebar, bg=NAVY, height=10).pack()  # top spacer
         nav = [
             ("📊", "Στατιστικά",     self._page_stats),
             ("📝", "Καταχώρηση",     self._page_log_exam),
@@ -266,6 +275,7 @@ class ExamTracker(tk.Tk):
         txt.pack(side="left")
 
         all_w = [row, content, ico, txt]
+
         self._nav_rows[label] = {
             "widgets": all_w, "indicator": indicator, "txt": txt
         }
@@ -292,6 +302,7 @@ class ExamTracker(tk.Tk):
             w.bind("<Button-1>", click)
 
     def _set_active_nav(self, label):
+        # Deactivate previous
         if self._active_nav and self._active_nav in self._nav_rows:
             old = self._nav_rows[self._active_nav]
             for w in old["widgets"]: w.config(bg=NAVY)
@@ -313,6 +324,7 @@ class ExamTracker(tk.Tk):
 
         _section_header(f, "Στατιστικά")
 
+        # ── Search card ───────────────────────────────────────────────────────
         sc = _card(f)
         sc.pack(fill="x", padx=28, pady=(0, 14))
 
@@ -345,6 +357,7 @@ class ExamTracker(tk.Tk):
         _outline_btn(btn_row, "Εμφάνιση Βαθμών", self._stat_grades,
                      padx=14, pady=7).pack(side="left")
 
+        # ── Result strip ──────────────────────────────────────────────────────
         rc = _card(f)
         rc.pack(fill="x", padx=28, pady=(0, 14))
 
@@ -355,6 +368,7 @@ class ExamTracker(tk.Tk):
         )
         self._stat_result.pack(fill="x")
 
+        # ── Grades table ──────────────────────────────────────────────────────
         tc = _card(f)
         tc.pack(fill="both", expand=True, padx=28, pady=(0, 22))
 
@@ -390,10 +404,13 @@ class ExamTracker(tk.Tk):
         if not name:
             messagebox.showerror("Προσοχή", "Εισάγαγε όνομα μαθητή.")
             return
-
-        # ISOLATED MOCK RESULT
-        avg = round(random.uniform(12.0, 19.5), 2)
-        self._stat_result.config(text=f"  Γενικός μ.ο. για {name}:  {avg} (Mock)", fg=CYAN)
+        avg = db.Student(name, None, None).get_avg()
+        if avg == -1:
+            self._stat_result.config(
+                text="  ⚠  Δεν βρέθηκαν εγγραφές για αυτόν τον μαθητή.", fg=GOLD)
+        else:
+            self._stat_result.config(
+                text=f"  Γενικός μ.ο. για {name}:  {avg}", fg=CYAN)
 
     def _stat_subject(self):
         name = self._s_name.get().strip()
@@ -401,10 +418,13 @@ class ExamTracker(tk.Tk):
         if not name or not subj:
             messagebox.showerror("Προσοχή", "Εισάγαγε όνομα μαθητή και μάθημα.")
             return
-
-        # ISOLATED MOCK RESULT
-        avg = round(random.uniform(14.0, 20.0), 2)
-        self._stat_result.config(text=f"  Μ.ο. {subj} για {name}:  {avg} (Mock)", fg=CYAN)
+        avg = db.Student(name, None, None).get_avg_subj(subj)
+        if avg == -1:
+            self._stat_result.config(
+                text="  ⚠  Δεν βρέθηκαν εγγραφές.", fg=GOLD)
+        else:
+            self._stat_result.config(
+                text=f"  Μ.ο. {subj} για {name}:  {avg}", fg=CYAN)
 
     def _stat_grades(self):
         name = self._s_name.get().strip()
@@ -412,15 +432,17 @@ class ExamTracker(tk.Tk):
         if not name or not subj:
             messagebox.showerror("Προσοχή", "Εισάγαγε όνομα μαθητή και μάθημα.")
             return
-
         self._tree.delete(*self._tree.get_children())
-
-        # ISOLATED MOCK RESULT
-        grades = [round(random.uniform(10.0, 20.0), 1) for _ in range(3)]
+        grades = db.Student(name, None, None).list_grades(subj)
         for g in grades:
             self._tree.insert("", "end", values=(name, subj, g))
-
-        self._stat_result.config(text=f"  {len(grades)} βαθμοί για {name} / {subj} (Mock)", fg=CYAN)
+        count = len(grades)
+        if count:
+            self._stat_result.config(
+                text=f"  {count} βαθμοί για {name} / {subj}", fg=CYAN)
+        else:
+            self._stat_result.config(
+                text="  ⚠  Δεν βρέθηκαν βαθμοί.", fg=GOLD)
 
     # ══════════════════════════════════════════════════════════════════════════
     # ΣΕΛΙΔΑ: ΚΑΤΑΧΩΡΗΣΗ
@@ -439,8 +461,9 @@ class ExamTracker(tk.Tk):
 
         tk.Label(fc_inner, text="ΣΤΟΙΧΕΙΑ ΕΞΕΤΑΣΗΣ", font=FONT_XS,
                  bg=WHITE, fg=MUTED).grid(row=0, column=0, columnspan=4,
-                                          sticky="w", pady=(0, 16))
+                                            sticky="w", pady=(0, 16))
 
+        # 2×2 grid layout
         fields = [
             ("ΟΝΟΜΑ ΜΑΘΗΤΗ",            "le_name", "", 0, 0),
             ("ΜΑΘΗΜΑ",                  "le_subj", "", 0, 2),
@@ -453,13 +476,14 @@ class ExamTracker(tk.Tk):
             tk.Label(fc_inner, text=lbl_txt, font=FONT_XS,
                      bg=WHITE, fg=TEAL
                      ).grid(row=r, column=c, sticky="w",
-                            pady=(10 if r > 0 else 0, 5), padx=(0, 30))
+                             pady=(10 if r > 0 else 0, 5), padx=(0, 30))
             e = _entry(fc_inner, width=24)
             e.grid(row=r + 1, column=c, sticky="w", ipady=8, padx=(0, 30))
             if default:
                 e.insert(0, default)
             self._le[key] = e
 
+        # Status + button
         status_f = tk.Frame(fc, bg=WHITE)
         status_f.pack(fill="x", padx=22, pady=(10, 0))
 
@@ -480,10 +504,9 @@ class ExamTracker(tk.Tk):
         except ValueError:
             messagebox.showerror("Μη έγκυρη τιμή", "Ο βαθμός πρέπει να είναι αριθμός.")
             return
-
-        # ISOLATED MOCK RESULT
+        db.mock_exam(vals["le_name"], vals["le_date"], vals["le_subj"], mark).log_exam()
         self._le_status.config(
-            text=f"  ✓  {vals['le_name']} · {vals['le_subj']} · {mark}  καταχωρήθηκε. (Mock View)",
+            text=f"  ✓  {vals['le_name']} · {vals['le_subj']} · {mark}  καταχωρήθηκε.",
             fg=CYAN,
         )
         for e in self._le.values():
@@ -508,7 +531,7 @@ class ExamTracker(tk.Tk):
 
         tk.Label(fc_inner, text="ΝΕΑ ΠΛΗΡΩΜΗ", font=FONT_XS,
                  bg=WHITE, fg=MUTED).grid(row=0, column=0, columnspan=4,
-                                          sticky="w", pady=(0, 16))
+                                            sticky="w", pady=(0, 16))
 
         fields = [
             ("ΟΝΟΜΑ ΜΑΘΗΤΗ",            "pay_name",   "", 0, 0),
@@ -521,7 +544,7 @@ class ExamTracker(tk.Tk):
             tk.Label(fc_inner, text=lbl_txt, font=FONT_XS,
                      bg=WHITE, fg=TEAL
                      ).grid(row=r, column=c, sticky="w",
-                            pady=(10 if r > 0 else 0, 5), padx=(0, 30))
+                             pady=(10 if r > 0 else 0, 5), padx=(0, 30))
             e = _entry(fc_inner, width=24)
             e.grid(row=r + 1, column=c, sticky="w", ipady=8, padx=(0, 30))
             if default:
@@ -610,10 +633,9 @@ class ExamTracker(tk.Tk):
         except ValueError:
             messagebox.showerror("Μη έγκυρη τιμή", "Το ποσό πρέπει να είναι αριθμός.")
             return
-
-        # ISOLATED MOCK RESULT
+        db.payment(vals["pay_name"], vals["pay_date"], amount).log_payment()
         self._pay_status.config(
-            text=f"  ✓  {vals['pay_name']} · {amount}€ καταχωρήθηκε. (Mock View)",
+            text=f"  ✓  {vals['pay_name']} · {amount}€ καταχωρήθηκε.",
             fg=CYAN,
         )
         for e in self._pay.values():
@@ -625,31 +647,26 @@ class ExamTracker(tk.Tk):
         if not name:
             messagebox.showerror("Προσοχή", "Εισάγαγε όνομα μαθητή.")
             return
+        student = db.Student(name, None, None)
+        expected, paid, balance = student.get_balance()
 
         self._pay_tree.delete(*self._pay_tree.get_children())
-
-        # ISOLATED MOCK RESULT
-        payment_count = random.randint(1, 4)
-        mock_payments = [
-            (f"2026-{random.randint(1,7):02d}-{random.randint(1,28):02d}",
-             random.choice([40, 50, 60, 100]))
-            for _ in range(payment_count)
-        ]
-        for c_date, amount in mock_payments:
+        for c_date, amount in student.list_payments():
             self._pay_tree.insert("", "end", values=(c_date, amount))
 
-        monthly_fee = random.choice([50, 60, 80])
-        months = random.randint(1, 5)
-        expected = monthly_fee * months
-        paid = sum(a for _, a in mock_payments)
-        balance = expected - paid
-
-        color = RED if balance > 0 else CYAN
-        self._balance_result.config(
-            text=(f"  {name}  ·  Αναμενόμενο: {expected}€  ·  "
-                  f"Πληρωμένο: {paid}€  ·  Υπόλοιπο: {balance}€  (Mock)"),
-            fg=color,
-        )
+        if expected == -1:
+            self._balance_result.config(
+                text=f"  ⚠  Δεν βρέθηκε τάξη/ημερομηνία εγγραφής (ή η τάξη δεν "
+                     f"υπάρχει στο grade) για {name}. (N/A)",
+                fg=GOLD,
+            )
+        else:
+            color = RED if balance > 0 else CYAN
+            self._balance_result.config(
+                text=(f"  {name}  ·  Αναμενόμενο: {expected}€  ·  "
+                      f"Πληρωμένο: {paid}€  ·  Υπόλοιπο: {balance}€"),
+                fg=color,
+            )
 
     # ══════════════════════════════════════════════════════════════════════════
     # ΣΕΛΙΔΑ: ΝΕΟΣ ΜΑΘΗΤΗΣ
@@ -660,6 +677,7 @@ class ExamTracker(tk.Tk):
 
         _section_header(f, "Νέος Μαθητής")
 
+        # Form card
         fc = _card(f)
         fc.pack(fill="x", padx=28, pady=(0, 14))
 
@@ -706,11 +724,9 @@ class ExamTracker(tk.Tk):
         except ValueError:
             messagebox.showerror("Μη έγκυρη τιμή", "Η ηλικία πρέπει να είναι ακέραιος.")
             return
-
-        # ISOLATED MOCK RESULT
+        db.Student(name, age, grade).save(grade, enroll_date)
         self._as_status.config(
-            text=f"  ✓  Ο μαθητής {name} ({grade}, εγγραφή {enroll_date}) "
-                 f"προστέθηκε εικονικά (Mock View).",
+            text=f"  ✓  Ο μαθητής {name} ({grade}) προστέθηκε επιτυχώς.",
             fg=CYAN,
         )
         for e in self._as.values():
