@@ -244,6 +244,7 @@ class ExamTracker(tk.Tk):
         nav = [
             ("📊", "Στατιστικά",     self._page_stats),
             ("📝", "Καταχώρηση",     self._page_log_exam),
+            ("💳", "Πληρωμές",       self._page_payments),
             ("👤", "Νέος Μαθητής",   self._page_add_student),
         ]
         for icon, label, cmd in nav:
@@ -510,6 +511,161 @@ class ExamTracker(tk.Tk):
         self._le["le_date"].insert(0, str(date.today()))
 
     # ══════════════════════════════════════════════════════════════════════════
+    # ΣΕΛΙΔΑ: ΠΛΗΡΩΜΕΣ
+    # ══════════════════════════════════════════════════════════════════════════
+    def _page_payments(self):
+        self._clear_content()
+        f = self.content
+
+        _section_header(f, "Πληρωμές")
+
+        # ── Καταχώρηση πληρωμής ─────────────────────────────────────────────
+        fc = _card(f)
+        fc.pack(fill="x", padx=28, pady=(0, 14))
+
+        fc_inner = tk.Frame(fc, bg=WHITE)
+        fc_inner.pack(fill="x", padx=22, pady=20)
+
+        tk.Label(fc_inner, text="ΝΕΑ ΠΛΗΡΩΜΗ", font=FONT_XS,
+                 bg=WHITE, fg=MUTED).grid(row=0, column=0, columnspan=4,
+                                            sticky="w", pady=(0, 16))
+
+        fields = [
+            ("ΟΝΟΜΑ ΜΑΘΗΤΗ",            "pay_name",   "", 0, 0),
+            ("ΠΟΣΟ (€)",                "pay_amount", "", 0, 2),
+            ("ΗΜΕΡΟΜΗΝΙΑ (ΕΕΕΕ-ΜΜ-ΗΗ)", "pay_date",   str(date.today()), 2, 0),
+        ]
+
+        self._pay: dict[str, tk.Entry] = {}
+        for lbl_txt, key, default, r, c in fields:
+            tk.Label(fc_inner, text=lbl_txt, font=FONT_XS,
+                     bg=WHITE, fg=TEAL
+                     ).grid(row=r, column=c, sticky="w",
+                             pady=(10 if r > 0 else 0, 5), padx=(0, 30))
+            e = _entry(fc_inner, width=24)
+            e.grid(row=r + 1, column=c, sticky="w", ipady=8, padx=(0, 30))
+            if default:
+                e.insert(0, default)
+            self._pay[key] = e
+
+        status_f = tk.Frame(fc, bg=WHITE)
+        status_f.pack(fill="x", padx=22, pady=(10, 0))
+
+        self._pay_status = tk.Label(status_f, text="", font=FONT_MD,
+                                     bg=WHITE, fg=CYAN, anchor="w")
+        self._pay_status.pack(anchor="w", pady=(0, 4))
+
+        _gold_btn(fc, "  Καταχώρηση Πληρωμής  ✓  ", self._do_log_payment,
+                  padx=0, pady=0).pack(anchor="w", padx=22, pady=(0, 22), ipady=9, ipadx=6)
+
+        # ── Αναζήτηση υπολοίπου ──────────────────────────────────────────────
+        sc = _card(f)
+        sc.pack(fill="x", padx=28, pady=(0, 14))
+
+        sc_inner = tk.Frame(sc, bg=WHITE)
+        sc_inner.pack(fill="x", padx=22, pady=20)
+
+        tk.Label(sc_inner, text="ΑΝΑΖΗΤΗΣΗ ΥΠΟΛΟΙΠΟΥ", font=FONT_XS,
+                 bg=WHITE, fg=MUTED).pack(anchor="w", pady=(0, 14))
+
+        inp_row = tk.Frame(sc_inner, bg=WHITE)
+        inp_row.pack(anchor="w")
+
+        tk.Label(inp_row, text="Μαθητής", font=("Segoe UI", 9, "bold"),
+                 bg=WHITE, fg=TEAL).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        self._pay_search_name = _entry(inp_row, width=24)
+        self._pay_search_name.grid(row=1, column=0, ipady=8, sticky="w")
+
+        _gold_btn(sc_inner, "Εμφάνιση Υπολοίπου", self._show_balance,
+                  padx=14, pady=7).pack(anchor="w", pady=(16, 0))
+
+        # ── Result strip ──────────────────────────────────────────────────────
+        rc = _card(f)
+        rc.pack(fill="x", padx=28, pady=(0, 14))
+
+        self._balance_result = tk.Label(
+            rc, text="  Επίλεξε μαθητή και πάτα «Εμφάνιση Υπολοίπου».",
+            font=("Segoe UI", 12), bg=WHITE, fg=MUTED,
+            anchor="w", padx=22, pady=14,
+        )
+        self._balance_result.pack(fill="x")
+
+        # ── Ιστορικό πληρωμών ────────────────────────────────────────────────
+        tc = _card(f)
+        tc.pack(fill="both", expand=True, padx=28, pady=(0, 22))
+
+        hdr = tk.Frame(tc, bg=WHITE)
+        hdr.pack(fill="x", padx=18, pady=(14, 0))
+        tk.Label(hdr, text="ΙΣΤΟΡΙΚΟ ΠΛΗΡΩΜΩΝ", font=FONT_XS,
+                 bg=WHITE, fg=MUTED).pack(side="left")
+        tk.Frame(tc, bg=BORDER, height=1).pack(fill="x", padx=18, pady=(8, 0))
+
+        tree_wrap = tk.Frame(tc, bg=WHITE)
+        tree_wrap.pack(fill="both", expand=True, padx=18, pady=(6, 18))
+
+        self._pay_tree = ttk.Treeview(
+            tree_wrap,
+            columns=("Ημερομηνία", "Ποσό"),
+            show="headings", height=8,
+        )
+        for col, w, anc in [
+            ("Ημερομηνία", 270, "w"),
+            ("Ποσό",       270, "center"),
+        ]:
+            self._pay_tree.heading(col, text=f"  {col}")
+            self._pay_tree.column(col, width=w, anchor=anc)
+
+        vsb = ttk.Scrollbar(tree_wrap, orient="vertical", command=self._pay_tree.yview)
+        self._pay_tree.configure(yscrollcommand=vsb.set)
+        self._pay_tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+    def _do_log_payment(self):
+        vals = {k: v.get().strip() for k, v in self._pay.items()}
+        if not all(vals.values()):
+            messagebox.showerror("Προσοχή", "Όλα τα πεδία είναι υποχρεωτικά.")
+            return
+        try:
+            amount = float(vals["pay_amount"])
+        except ValueError:
+            messagebox.showerror("Μη έγκυρη τιμή", "Το ποσό πρέπει να είναι αριθμός.")
+            return
+        db.payment(vals["pay_name"], vals["pay_date"], amount).log_payment()
+        self._pay_status.config(
+            text=f"  ✓  {vals['pay_name']} · {amount}€ καταχωρήθηκε.",
+            fg=CYAN,
+        )
+        for e in self._pay.values():
+            e.delete(0, "end")
+        self._pay["pay_date"].insert(0, str(date.today()))
+
+    def _show_balance(self):
+        name = self._pay_search_name.get().strip()
+        if not name:
+            messagebox.showerror("Προσοχή", "Εισάγαγε όνομα μαθητή.")
+            return
+        student = db.Student(name, None, None)
+        expected, paid, balance = student.get_balance()
+
+        self._pay_tree.delete(*self._pay_tree.get_children())
+        for c_date, amount in student.list_payments():
+            self._pay_tree.insert("", "end", values=(c_date, amount))
+
+        if expected == -1:
+            self._balance_result.config(
+                text=f"  ⚠  Δεν βρέθηκε τάξη/ημερομηνία εγγραφής (ή η τάξη δεν "
+                     f"υπάρχει στο grade) για {name}. (N/A)",
+                fg=GOLD,
+            )
+        else:
+            color = RED if balance > 0 else CYAN
+            self._balance_result.config(
+                text=(f"  {name}  ·  Αναμενόμενο: {expected}€  ·  "
+                      f"Πληρωμένο: {paid}€  ·  Υπόλοιπο: {balance}€"),
+                fg=color,
+            )
+
+    # ══════════════════════════════════════════════════════════════════════════
     # ΣΕΛΙΔΑ: ΝΕΟΣ ΜΑΘΗΤΗΣ
     # ══════════════════════════════════════════════════════════════════════════
     def _page_add_student(self):
@@ -517,16 +673,6 @@ class ExamTracker(tk.Tk):
         f = self.content
 
         _section_header(f, "Νέος Μαθητής")
-
-        # Warning banner
-        wb = tk.Frame(f, bg="#FEF3CD",
-                      highlightthickness=1, highlightbackground="#F0C040")
-        wb.pack(fill="x", padx=28, pady=(0, 14))
-        tk.Label(wb,
-                 text="⚠  Η Student.save() δεν υλοποιείται στο db_comms.py — "
-                      "το αντικείμενο δημιουργείται μόνο στη μνήμη.",
-                 font=FONT_SM, bg="#FEF3CD", fg="#7A5000",
-                 anchor="w", padx=18, pady=11).pack(fill="x")
 
         # Form card
         fc = _card(f)
@@ -538,13 +684,20 @@ class ExamTracker(tk.Tk):
         tk.Label(fc_inner, text="ΣΤΟΙΧΕΙΑ ΜΑΘΗΤΗ", font=FONT_XS,
                  bg=WHITE, fg=MUTED).pack(anchor="w", pady=(0, 16))
 
-        fields = [("ΟΝΟΜΑ", "as_name"), ("ΗΛΙΚΙΑ", "as_age"), ("ΤΑΞΗ / ΤΜΗΜΑ", "as_grade")]
+        fields = [
+            ("ΟΝΟΜΑ", "as_name"),
+            ("ΗΛΙΚΙΑ", "as_age"),
+            ("ΤΑΞΗ / ΤΜΗΜΑ", "as_grade"),
+            ("ΗΜΕΡΟΜΗΝΙΑ ΕΓΓΡΑΦΗΣ (ΕΕΕΕ-ΜΜ-ΗΗ)", "as_enroll_date"),
+        ]
         self._as: dict[str, tk.Entry] = {}
         for lbl_txt, key in fields:
             tk.Label(fc_inner, text=lbl_txt, font=FONT_XS,
                      bg=WHITE, fg=TEAL).pack(anchor="w", pady=(8, 5))
             e = _entry(fc_inner, width=32)
             e.pack(anchor="w", ipady=8, fill="x")
+            if key == "as_enroll_date":
+                e.insert(0, str(date.today()))
             self._as[key] = e
 
         self._as_status = tk.Label(fc, text="", font=FONT_SM,
@@ -556,10 +709,11 @@ class ExamTracker(tk.Tk):
                   padx=0, pady=0).pack(anchor="w", padx=22, pady=(8, 22), ipady=9, ipadx=6)
 
     def _do_add_student(self):
-        name  = self._as["as_name"].get().strip()
-        age   = self._as["as_age"].get().strip()
-        grade = self._as["as_grade"].get().strip()
-        if not all([name, age, grade]):
+        name        = self._as["as_name"].get().strip()
+        age         = self._as["as_age"].get().strip()
+        grade       = self._as["as_grade"].get().strip()
+        enroll_date = self._as["as_enroll_date"].get().strip()
+        if not all([name, age, grade, enroll_date]):
             messagebox.showerror("Προσοχή", "Όλα τα πεδία είναι υποχρεωτικά.")
             return
         try:
@@ -567,12 +721,14 @@ class ExamTracker(tk.Tk):
         except ValueError:
             messagebox.showerror("Μη έγκυρη τιμή", "Η ηλικία πρέπει να είναι ακέραιος.")
             return
-        db.Student(name, age, grade)
+        db.Student(name, age, grade).save(grade, enroll_date)
         self._as_status.config(
-            text=f"  ✓  Student(name='{name}', age={age}, grade='{grade}') δημιουργήθηκε.\n"
-                  "     Υλοποίησε Student.save() για αποθήκευση στη βάση δεδομένων.",
-            fg=MUTED,
+            text=f"  ✓  Ο μαθητής {name} ({grade}) προστέθηκε επιτυχώς.",
+            fg=CYAN,
         )
+        for e in self._as.values():
+            e.delete(0, "end")
+        self._as["as_enroll_date"].insert(0, str(date.today()))
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
