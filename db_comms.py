@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from datetime import date as _date
 import psycopg2 as pgsql
 import os
+import string
 
 load_dotenv()
 
@@ -36,7 +37,7 @@ class Student:
             # Διόρθωση: s_name αντί για name, subj αντί για subject
             cur.execute("""
                 SELECT AVG(mark) FROM exams WHERE s_name = %s AND subj = %s      
-                        """, (self.name, subject))
+                        """, (self.name.upper(), subject))
             res = cur.fetchone()
             if res and res[0] is not None:
                 return round(res[0], 2)
@@ -51,7 +52,7 @@ class Student:
             # Διόρθωση: s_name αντί για name
             cur.execute("""
                 SELECT AVG(mark) FROM exams WHERE s_name = %s      
-                        """, (self.name,))
+                        """, (self.name.upper(),))
             res = cur.fetchone()
             if res and res[0] is not None:
                 return round(res[0], 2)
@@ -66,7 +67,7 @@ class Student:
             # Διόρθωση: s_name αντί για name, subj αντί για subject
             cur.execute("""
                 SELECT mark FROM exams WHERE s_name = %s AND subj = %s
-                        """, (self.name, subject))
+                        """, (self.name.upper(), subject))
             res = cur.fetchall()
             return [row[0] for row in res]
         except Exception as e:
@@ -80,7 +81,7 @@ class Student:
             cur.execute("""
                 INSERT INTO students (s_name, dob, c_name, enroll_date)
                 VALUES (%s, %s, %s, %s)
-                        """, (self.name, str(self.age), c_name, enroll_date))
+                        """, (self.name.upper(), str(self.age), c_name, enroll_date))
             conn.commit()
             print("Η εγγραφή του μαθητή έγινε επιτυχώς!")
         except Exception as e:
@@ -91,7 +92,7 @@ class Student:
         try:
             cur.execute("""
                 SELECT SUM(amount) FROM payments WHERE s_name = %s
-                        """, (self.name,))
+                        """, (self.name.upper(),))
             res = cur.fetchone()
             if res and res[0] is not None:
                 return round(res[0], 2)
@@ -105,7 +106,7 @@ class Student:
         try:
             cur.execute("""
                 SELECT c_date, amount FROM payments WHERE s_name = %s ORDER BY c_date
-                        """, (self.name,))
+                        """, (self.name.upper(),))
             res = cur.fetchall()
             return [(row[0], row[1]) for row in res]
         except Exception as e:
@@ -116,7 +117,7 @@ class Student:
         try:
             cur.execute("""
                 SELECT c_name, enroll_date FROM students WHERE s_name = %s
-                        """, (self.name,))
+                        """, (self.name.upper(),))
             row = cur.fetchone()
             if not row or not row[0] or not row[1]:
                 return (-1, -1, -1)
@@ -124,7 +125,7 @@ class Student:
 
             cur.execute("""
                 SELECT student_amount FROM grade WHERE c_name = %s
-                        """, (c_name,))
+                        """, (c_name.upper(),))
             grow = cur.fetchone()
             if not grow:
                 return (-1, -1, -1)
@@ -159,7 +160,7 @@ class mock_exam:
             cur.execute("""
                 INSERT INTO exams (mark, s_name, c_date, subj)
                 VALUES (%s, %s, %s, %s)        
-                        """, (self.mark, self.s_name, self.date, self.subject))
+                        """, (self.mark, self.s_name.upper(), self.date, self.subject))
             conn.commit()
             print("Η εγγραφή της εξέτασης έγινε επιτυχώς!")
         except Exception as e:
@@ -178,7 +179,7 @@ class payment:
             cur.execute("""
                 INSERT INTO payments (s_name, amount, c_date)
                 VALUES (%s, %s, %s)
-                        """, (self.s_name, self.amount, self.date))
+                        """, (self.s_name.upper(), self.amount, self.date))
             conn.commit()
             print("Η καταχώρηση της πληρωμής έγινε επιτυχώς!")
         except Exception as e:
