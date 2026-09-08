@@ -1,5 +1,4 @@
 # ExamTracker
-
 ExamTracker is a small desktop app for tutoring schools (φροντιστήρια) that keeps track of two things every small institution cares about: how students are doing on their mock exams, and whether their tuition is paid up. It is built with a Tkinter front end and a plain-Python object-oriented back end, talking to a local PostgreSQL database. The interface is in Greek, since that is who the app is for.
 
 There is no server, no cloud account, no sync. Each client runs their own copy against their own local database, configured through a `.env` file that stays on their machine.
