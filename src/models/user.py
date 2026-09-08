@@ -1,5 +1,5 @@
 from src.hasher import hash_password
-from src.db_connection import connect_db
+from db.db_connection import connect_db
 
 
 class User:
