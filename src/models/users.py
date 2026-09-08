@@ -2,7 +2,7 @@ from src.hasher import hash_password
 from src.db_connection import connect_db
 
 
-class Users:
+class User:
     def __init__(self,username,pwd,role,is_active):
         self.username = username
         self.pwd = hash_password(pwd)
