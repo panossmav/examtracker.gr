@@ -17,3 +17,10 @@ CREATE TABLE students(
     phone TEXT NOT NULL,
 );
 
+CREATE TABLE subjects(
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    classrooms TEXT[] NOT NULL,
+    students TEXT[],
+    teachers TEXT[],
+);
