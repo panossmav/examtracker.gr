@@ -12,6 +12,8 @@ CREATE TABLE students(
     dob TEXT NOT NULL,
     classroom TEXT,
     subjects TEXT[],
-    status TEXT NOT NULL DEFAULT 'active'
+    status TEXT NOT NULL DEFAULT 'active',
+    parent TEXT NOT NULL,
+    phone TEXT NOT NULL,
 );
 

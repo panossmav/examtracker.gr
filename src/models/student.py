@@ -28,6 +28,7 @@ class Student:
             self.status = status
             self.phone = phone
             self.parent = parent
+            self.id = id
         except Exception: 
             conn.rollback()
         finally:
@@ -61,6 +62,22 @@ class Student:
         finally:
             conn.close()
 
+    def register_db(self):
+        conn, cur = connect_db()
+        try:
+            cur.execute(
+                """
+                INSERT into STUDENTS (name,dob,classroom,subjects,status,parent,phone) VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """
+            ,(self.name,self.dob,self.classroom,self.subjects,self.status,self.parent,self.phone))
+            conn.commit()
+            self.id = cur.fetchone()[0]
+        except Exception:
+            conn.rollback()
+        finally:
+            conn.close()
+
+
 def remove_subject(self,subject_name):
     conn,cur = connect_db()
     try:
@@ -78,4 +95,6 @@ def remove_subject(self,subject_name):
         conn.rollback()
     finally:
         conn.close()
+
+
 

@@ -1,4 +1,5 @@
 from db.db_connection import connect_db
+from src.models.student import Student
 
 def generate_object_student(student_id):
     conn , cur = connect_db()
@@ -11,10 +12,9 @@ def generate_object_student(student_id):
         res = cur.fetchall()
         if res is None:
             raise Exception
-        #TODO: when db schema is made
-        return True
+        return Student(res[1],res[2],res[3],res[4],res[5],res[6],res[7])
     except:
-        return False
+        return None
     finally:
         conn.close()
 
