@@ -1,112 +1,77 @@
 # ExamTracker
-ExamTracker is a small desktop app for tutoring schools (φροντιστήρια) that keeps track of two things every small institution cares about: how students are doing on their mock exams, and whether their tuition is paid up. It is built with a Tkinter front end and a plain-Python object-oriented back end, talking to a local PostgreSQL database. The interface is in Greek, since that is who the app is for.
 
-There is no server, no cloud account, no sync. Each client runs their own copy against their own local database, configured through a `.env` file that stays on their machine.
+A desktop app for Greek tutoring schools (φροντιστήρια). A teacher logs in, then tracks student exam marks and tuition payments from a single Tkinter window. The interface is entirely in Greek.
 
-## What it does
+## Stack
 
-Once you log in, the app opens on a sidebar with four sections:
+- **Python 3** with **Tkinter/ttk** for the GUI
+- **PostgreSQL** via `psycopg2` for storage
+- **python-dotenv** for reading the database connection string from a `.env` file
 
-- **Statistics (Στατιστικά)** — look up a student and get their overall grade average, their average in a specific subject, or a full table of their recorded marks.
-- **Exam entry (Καταχώρηση)** — record a mock exam result: student, subject, date, and mark.
-- **Payments (Πληρωμές)** — record tuition payments, and check a student's balance. The balance is calculated from the monthly fee of the student's class and the number of months since enrollment, minus everything they have paid so far. A payment history table is shown alongside.
-- **New student (Νέος Μαθητής)** — register a student with their name, age, class, and enrollment date.
+No web server, no ORM. `app.py` calls straight into `db_comms.py`, which runs raw SQL against five tables.
+
+## Features
+
+The sidebar has four sections:
+
+- **Στατιστικά (Statistics)**: search a student and pull their overall average, their average in one subject, or a table of every mark they've logged for a subject.
+- **Καταχώρηση (Exam entry)**: log a mock exam with student name, subject, date, and mark.
+- **Πληρωμές (Payments)**: log a tuition payment and look up a student's balance. The balance comes from `monthly_fee × months_since_enrollment − total_paid`. The app looks up the monthly fee by the student's class in the `grade` table and counts months from the enrollment date to the current month. A payment history table sits below the search.
+- **Νέος Μαθητής (New student)**: register a student with name, age, class, and enrollment date.
+
+Login checks a username/password pair against the `users` table. Passwords are hashed client-side with SHA-256 before the query runs; there's no salting or hashing on the server side beyond that.
 
 ## Project layout
 
 ```
 examtracker.gr/
-├── app.py                     # Tkinter GUI (login, navigation, all four pages)
-├── db_comms.py                # Database layer: Student, mock_exam, payment, Backend_user
+├── app.py                     # Tkinter GUI: login, navigation, all four pages
+├── db_comms.py                # DB layer: Student, mock_exam, payment, Backend_user
 ├── requirements.txt
 ├── setup/
-│   ├── .env.example           # Template for your database connection string
-│   └── initial_commands.sql   # Creates the five tables the app needs
+│   ├── .env.example           # Template for DATABASE_URL
+│   └── initial_commands.sql   # Creates the five tables
 ├── demo_app/
-│   ├── app_demo.py            # Same GUI, wired to an in-memory data store
-│   └── db_comms_demo.py       # Fake backend with sample Greek students — no DB needed
+│   ├── app_demo.py            # Same GUI, imports db_comms_demo instead of db_comms
+│   └── db_comms_demo.py       # In-memory backend, no database required
 ├── images/                    # Logo
-└── info/                      # Design notes and scratch files
+└── info/                      # Design scratch files (isolated GUI prototype, drawio diagram)
 ```
 
-## Requirements
+## Database
 
-- Python 3.10 or newer (the code uses modern type-hint syntax like `dict | None`)
-- PostgreSQL running locally
-- Two Python packages: `python-dotenv` and `psycopg2-binary`
+Five tables, created by `setup/initial_commands.sql`:
 
-## Trying it out first (demo mode)
+| Table | Purpose |
+|---|---|
+| `students` | name, date-of-birth field (repurposed to store age; see note below), class, enrollment date |
+| `exams` | one row per mock exam mark: student, subject, date, mark |
+| `payments` | one row per tuition payment: student, amount, date |
+| `grade` | one row per class name, holding its monthly fee and an active flag |
+| `users` | login credentials |
 
-If you just want to see the app without setting up a database, the demo version runs entirely in memory with a few sample students already loaded:
+Everything is keyed on student name (uppercased on write and on lookup) rather than a foreign key to `students.id`. There's no seed data for `grade` in `initial_commands.sql`, so a fresh database needs rows added there before balances can resolve.
 
-```bash
-cd demo_app
-python app_demo.py
+One deliberate schema shortcut: the `students.dob` column is `NOT NULL` but the UI has no date-of-birth field, so `Student.save()` writes the student's age into it as a string instead.
+
+## Running it
+
+### With a real database
+
+1. `pip install -r requirements.txt`
+2. Create a PostgreSQL database and run `setup/initial_commands.sql` against it.
+3. Copy `setup/.env.example` to `.env` and set `DATABASE_URL` to your connection string.
+4. Add at least one row to `users` (with a SHA-256 password hash) and one row per class to `grade`.
+5. `python app.py`
+
+### Demo mode, no database
+
+```
+python demo_app/app_demo.py
 ```
 
-Log in with username `demo` and password `demo123`. Anything you add lives only until you close the window.
+Login with `demo` / `demo123`. `db_comms_demo.py` swaps every SQL call for lookups against in-memory Python dicts and lists, pre-populated with three sample students, some exam marks, payments, and per-class fees. Nothing persists between runs.
 
-## Setting up the real thing
+## Notes on `info/`
 
-1. **Install the dependencies.**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Create a PostgreSQL database** and run the schema script against it:
-
-   ```bash
-   psql -d your_database -f setup/initial_commands.sql
-   ```
-
-   This creates five tables: `students`, `exams`, `payments`, `grade` (one row per class, holding its monthly fee), and `users` (app logins).
-
-3. **Configure the connection.** Copy the example env file into the project root and fill in your connection string:
-
-   ```bash
-   cp setup/.env.example .env
-   ```
-
-   ```
-   DATABASE_URL=postgresql://user:password@localhost:5432/your_database
-   ```
-
-   The `.env` file is git-ignored on purpose — every client gets their own.
-
-4. **Create at least one login.** Passwords are stored as SHA-256 hashes, and the app hashes what you type before checking it, so the value in the database must be the hash, not the plain password. For example, to create a user `admin` with password `mypassword`:
-
-   ```sql
-   INSERT INTO users (username, pwd)
-   VALUES ('admin', encode(sha256('mypassword'::bytea), 'hex'));
-   ```
-
-5. **Add your classes to the `grade` table** so balance calculations work. Each row is a class name and its monthly fee:
-
-   ```sql
-   INSERT INTO grade (c_name, is_active, student_amount)
-   VALUES ('Β Λυκείου', 1, 120);
-   ```
-
-   The class name here must match what you type in the "ΤΑΞΗ / ΤΜΗΜΑ" field when registering a student — that is how the app finds the fee.
-
-6. **Run it.**
-
-   ```bash
-   python app.py
-   ```
-
-## How balances are calculated
-
-When you ask for a student's balance, the app looks up their class and enrollment date, finds the class's monthly fee in the `grade` table, and counts the months from enrollment through the current month (the enrollment month counts as month one). Expected total is fee times months; the balance is that minus the sum of recorded payments. If the student has no class, no enrollment date, or their class is missing from `grade`, the app tells you it cannot compute a balance rather than guessing.
-
-## A few honest notes
-
-- Students are matched by name across tables, so names need to be typed consistently. Two students with the same name will get mixed together.
-- Dates are stored as text in `YYYY-MM-DD` format; the forms pre-fill today's date, but nothing stops a typo.
-- There is currently one user role — everyone who logs in sees the same four pages.
-- Upgrading an older database that predates the payments feature? The comments at the top of `setup/initial_commands.sql` list the `ALTER TABLE` statements to run.
-
-## Updating existing installations
-
-Since each client has their own local database, schema changes have to be applied manually per installation. Keep an eye on `setup/initial_commands.sql` — migration notes live there as SQL comments.
+`info/isolated_gui.py` strips things down further: same visual layout as `app.py`, but every button handler returns a canned status message. It has no `db_comms` import, no real or fake data store, nothing wired up. It reads as a UI-only prototype kept for reference. `class_view.drawio` diagrams the class structure. `error_codes.md` and `setup.md` sit empty.
