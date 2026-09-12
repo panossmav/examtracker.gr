@@ -22,5 +22,5 @@ CREATE TABLE subjects(
     name TEXT NOT NULL,
     classrooms TEXT[] NOT NULL,
     students TEXT[],
-    teachers TEXT[],
+    teachers TEXT[]
 );
